@@ -325,6 +325,33 @@ void ayumi_process(struct ayumi* ay) {
   ay->right = decimate(fir_right);
 }
 
+void ayumi_process_fast(struct ayumi* ay) {
+  for (int i = 0; i < DECIMATE_FACTOR; i++) {
+    ay->x += ay->step;
+    if (ay->x >= 1) {
+      ay->x -= 1;
+      update_noise(ay);
+      update_envelope(ay);
+      for (int c = 0; c < TONE_CHANNELS; c += 1) {
+        update_tone(ay, c);
+      }
+    }
+
+  }
+
+  int out;
+  int noise = ay->noise & 1;
+  int envelope = ay->envelope;
+  ay->left = 0;
+  ay->right = 0;
+  for (int i = 0; i < TONE_CHANNELS; i += 1) {
+    out = (ay->channels[i].tone | ay->channels[i].t_off) & (noise | ay->channels[i].n_off);
+    out *= ay->channels[i].e_on ? envelope : ay->channels[i].volume * 2 + 1;
+    ay->left += ay->dac_table[out] * ay->channels[i].pan_left;
+    ay->right += ay->dac_table[out] * ay->channels[i].pan_right;
+  }
+}
+
 static double dc_filter(struct dc_filter* dc, int index, double x) {
   dc->sum += -dc->delay[index] + x;
   dc->delay[index] = x; 
